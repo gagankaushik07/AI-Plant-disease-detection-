@@ -1,0 +1,5 @@
+{
+  "name": "BHOOMI Plant AI",
+  "description": "Revolutionize agriculture with AI-powered crop, fertilizer, and plant disease management.",
+  "requestFramePermissions": ["camera", "geolocation"]
+}
