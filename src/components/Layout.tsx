@@ -1,5 +1,5 @@
 import React from 'react';
-import { Leaf, Sprout, Droplets, MessageSquare, Users } from 'lucide-react';
+import { Leaf, Sprout, Droplets, MessageSquare, Users, Video } from 'lucide-react';
 import { AppTab } from '../types';
 
 interface LayoutProps {
@@ -44,6 +44,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
               className={`text-sm font-medium transition-colors ${activeTab === 'chat' ? 'active-tab text-earth-900' : 'text-earth-400 hover:text-earth-600'}`}
             >
               Assistant
+            </button>
+            <button 
+              onClick={() => setActiveTab('video')}
+              className={`text-sm font-medium transition-colors ${activeTab === 'video' ? 'active-tab text-earth-900' : 'text-earth-400 hover:text-earth-600'}`}
+            >
+              Video AI
             </button>
             <button 
               onClick={() => setActiveTab('about')}
@@ -104,6 +110,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
         </button>
         <button onClick={() => setActiveTab('chat')} className={`p-2 ${activeTab === 'chat' ? 'text-earth-600' : 'text-earth-400'}`}>
           <MessageSquare size={24} />
+        </button>
+        <button onClick={() => setActiveTab('video')} className={`p-2 ${activeTab === 'video' ? 'text-earth-600' : 'text-earth-400'}`}>
+          <Video size={24} />
         </button>
         <button onClick={() => setActiveTab('about')} className={`p-2 ${activeTab === 'about' ? 'text-earth-600' : 'text-earth-400'}`}>
           <Users size={24} />

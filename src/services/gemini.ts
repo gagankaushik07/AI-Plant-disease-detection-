@@ -23,7 +23,7 @@ export async function analyzePlantDisease(base64Image: string, mimeType: string)
   const activeAi = getAiInstance();
 
   const response = await activeAi.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-pro-preview",
     contents: {
       parts: [
         {
@@ -72,7 +72,7 @@ export async function getCropRecommendation(soilType: string, climate: string, l
   const activeAi = getAiInstance();
 
   const response = await activeAi.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-pro-preview",
     contents: `Based on soil type '${soilType}', climate '${climate}'${location ? ` and location '${location}'` : ''}, recommend the best crop to grow. Provide the crop name, reason, best season, soil requirements, and water requirements in JSON format.`,
     config: {
       responseMimeType: "application/json",
@@ -97,7 +97,7 @@ export async function getFertilizerRecommendation(crop: string, growthStage: str
   const activeAi = getAiInstance();
 
   const response = await activeAi.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-pro-preview",
     contents: `For crop '${crop}' at growth stage '${growthStage}' with soil condition '${soilCondition}', recommend the best fertilizer. Provide the fertilizer name, dosage, application method, and frequency in JSON format.`,
     config: {
       responseMimeType: "application/json",
@@ -117,16 +117,72 @@ export async function getFertilizerRecommendation(crop: string, growthStage: str
   return JSON.parse(response.text || "{}");
 }
 
-export async function chatWithBhoomi(message: string, history: any[]) {
+export async function chatWithBhoomi(message: string, history: any[], imageData?: { base64: string; mimeType: string }) {
   const activeAi = getAiInstance();
 
   const chat = activeAi.chats.create({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-pro-preview",
     config: {
-      systemInstruction: "You are BHOOMI AI, a specialized agricultural assistant. Provide expert advice on plant care, disease management, and sustainable farming. Be helpful, concise, and professional.",
+      systemInstruction: "You are BHOOMI AI, a specialized agricultural assistant. Provide expert advice on plant care, disease management, and sustainable farming. If an image is provided, identify the plant or leaf type and diagnose any visible issues. Be helpful, concise, and professional.",
     },
   });
 
+  if (imageData) {
+    const response = await activeAi.models.generateContent({
+      model: "gemini-3.1-pro-preview",
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: imageData.base64.includes(",") ? imageData.base64.split(",")[1] : imageData.base64,
+              mimeType: imageData.mimeType,
+            },
+          },
+          {
+            text: message || "Analyze this plant image and tell me about it.",
+          },
+        ],
+      },
+      config: {
+        systemInstruction: "You are BHOOMI AI, a specialized agricultural assistant. Identify the plant or leaf type in the image and provide expert advice. Be helpful, concise, and professional.",
+      }
+    });
+    return response.text;
+  }
+
   const response = await chat.sendMessage({ message });
   return response.text;
+}
+
+export async function generateFarmingVideo(prompt: string, aspectRatio: '16:9' | '9:16' = '16:9') {
+  const activeAi = getAiInstance();
+  const apiKey = getApiKey();
+
+  let operation = await activeAi.models.generateVideos({
+    model: 'veo-3.1-fast-generate-preview',
+    prompt: `A high-quality educational agricultural video showing: ${prompt}`,
+    config: {
+      numberOfVideos: 1,
+      resolution: '720p',
+      aspectRatio: aspectRatio
+    }
+  });
+
+  while (!operation.done) {
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    operation = await activeAi.operations.getVideosOperation({ operation: operation });
+  }
+
+  const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+  if (!downloadLink) throw new Error("Video generation failed");
+
+  const response = await fetch(downloadLink, {
+    method: 'GET',
+    headers: {
+      'x-goog-api-key': apiKey,
+    },
+  });
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 }

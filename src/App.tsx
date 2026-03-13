@@ -4,6 +4,7 @@ import { DiseaseDetection } from './components/DiseaseDetection';
 import { CropAdvisory } from './components/CropAdvisory';
 import { FertilizerAdvisory } from './components/FertilizerAdvisory';
 import { ChatAssistant } from './components/ChatAssistant';
+import { VideoGenerator } from './components/VideoGenerator';
 import { AboutPage } from './components/AboutPage';
 import { AppTab } from './types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -21,6 +22,8 @@ export default function App() {
         return <FertilizerAdvisory />;
       case 'chat':
         return <ChatAssistant />;
+      case 'video':
+        return <VideoGenerator />;
       case 'about':
         return <AboutPage />;
       default:
