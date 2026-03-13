@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Video, Sparkles, Loader2, Download, Play, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Video, Sparkles, Loader2, Download, Play, AlertCircle, Clock } from 'lucide-react';
 import { generateFarmingVideo } from '../services/gemini';
+import { auth, db, doc, getDoc, updateDoc, serverTimestamp } from '../firebase';
 import { motion } from 'motion/react';
 
 export const VideoGenerator: React.FC = () => {
@@ -10,6 +11,53 @@ export const VideoGenerator: React.FC = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
+  const [usage, setUsage] = useState<{ count: number; lastReset: any } | null>(null);
+
+  const DAILY_LIMIT = 5;
+
+  useEffect(() => {
+    const fetchUsage = async () => {
+      if (!auth.currentUser) return;
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        setUsage(data.videoUsage || { count: 0, lastReset: null });
+      }
+    };
+    fetchUsage();
+  }, []);
+
+  const checkAndIncrementUsage = async () => {
+    if (!auth.currentUser) return false;
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) return false;
+    
+    const data = userSnap.data();
+    let currentUsage = data.videoUsage || { count: 0, lastReset: null };
+    
+    // Check if reset is needed (if lastReset was more than 24h ago)
+    const now = new Date();
+    const lastReset = currentUsage.lastReset?.toDate() || new Date(0);
+    const diffHours = (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60);
+    
+    if (diffHours >= 24) {
+      currentUsage = { count: 0, lastReset: serverTimestamp() };
+    }
+
+    if (currentUsage.count >= DAILY_LIMIT) {
+      return false;
+    }
+
+    const newUsage = { ...currentUsage, count: currentUsage.count + 1 };
+    if (currentUsage.count === 0) newUsage.lastReset = serverTimestamp();
+    
+    await updateDoc(userRef, { videoUsage: newUsage });
+    setUsage(newUsage);
+    return true;
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim() || loading) return;
@@ -17,10 +65,15 @@ export const VideoGenerator: React.FC = () => {
     setLoading(true);
     setError(null);
     setVideoUrl(null);
-    setStatus('Initializing generation...');
+    setStatus('Checking daily limit...');
 
     try {
-      // Polling updates
+      const canGenerate = await checkAndIncrementUsage();
+      if (!canGenerate) {
+        throw new Error(`Daily limit reached. You can generate up to ${DAILY_LIMIT} videos every 24 hours.`);
+      }
+
+      setStatus('Initializing generation...');
       const statusInterval = setInterval(() => {
         const statuses = [
           'Analyzing prompt...',
@@ -54,6 +107,11 @@ export const VideoGenerator: React.FC = () => {
         <p className="text-earth-600 max-w-2xl mx-auto">
           Create high-quality educational agricultural videos using Veo 3. Describe what you want to see, and our AI will bring it to life.
         </p>
+        
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-earth-100 text-earth-700 rounded-full text-sm font-medium">
+          <Clock size={16} />
+          Daily Limit: {usage?.count || 0} / {DAILY_LIMIT} used
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
@@ -98,13 +156,13 @@ export const VideoGenerator: React.FC = () => {
 
           <button
             onClick={handleGenerate}
-            disabled={!prompt.trim() || loading}
+            disabled={!prompt.trim() || loading || (usage?.count || 0) >= DAILY_LIMIT}
             className="w-full py-4 bg-earth-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-earth-700 transition-colors disabled:opacity-50 shadow-lg shadow-earth-200"
           >
             {loading ? (
               <>
                 <Loader2 className="animate-spin" size={20} />
-                Generating...
+                {status || 'Generating...'}
               </>
             ) : (
               <>

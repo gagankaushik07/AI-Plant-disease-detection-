@@ -1,0 +1,101 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - email: string (required)
+//   - displayName: string
+//   - videoUsage: map { count: number, lastReset: timestamp }
+//   - createdAt: timestamp
+//
+// Collection: feedback
+// Document ID: {feedbackId}
+// Fields:
+//   - uid: string (required)
+//   - userEmail: string
+//   - rating: number (required, 1-5)
+//   - comment: string
+//   - type: string (required, 'feedback' | 'complaint')
+//   - createdAt: timestamp
+//
+// Collection: diagnoses
+// Document ID: {diagnosisId}
+// Fields:
+//   - uid: string (required)
+//   - plantName: string (required)
+//   - disease: string (required)
+//   - imageUrl: string
+//   - createdAt: timestamp
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "gagankaushik028@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string &&
+             data.email is string;
+    }
+
+    function isValidFeedback(data) {
+      return data.keys().hasAll(['uid', 'rating', 'type']) &&
+             data.uid == request.auth.uid &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.type in ['feedback', 'complaint'];
+    }
+
+    function isValidDiagnosis(data) {
+      return data.keys().hasAll(['uid', 'plantName', 'disease']) &&
+             data.uid == request.auth.uid &&
+             data.plantName is string &&
+             data.disease is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.uid == request.auth.uid);
+      allow create: if isAuthenticated() && isValidFeedback(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /diagnoses/{diagnosisId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && isValidDiagnosis(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+  }
+}

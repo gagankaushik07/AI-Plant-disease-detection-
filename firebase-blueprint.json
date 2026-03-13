@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user usage data and preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "videoUsage": {
+          "type": "object",
+          "properties": {
+            "count": { "type": "number" },
+            "lastReset": { "type": "string", "format": "date-time" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Feedback": {
+      "title": "User Feedback",
+      "description": "Stores app ratings and complaints",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "type": { "type": "string", "enum": ["feedback", "complaint"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "rating", "type"]
+    },
+    "Diagnosis": {
+      "title": "Plant Diagnosis History",
+      "description": "Stores previous plant disease analyses",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "plantName": { "type": "string" },
+        "disease": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "plantName", "disease"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and usage tracking"
+    },
+    "/feedback/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "User feedback and complaints"
+    },
+    "/diagnoses/{diagnosisId}": {
+      "schema": "Diagnosis",
+      "description": "History of plant diagnoses"
+    }
+  }
+}

@@ -23,4 +23,4 @@ export interface FertilizerRecommendation {
   frequency: string;
 }
 
-export type AppTab = 'disease' | 'crop' | 'fertilizer' | 'chat' | 'video' | 'about';
+export type AppTab = 'disease' | 'crop' | 'fertilizer' | 'chat' | 'video' | 'feedback' | 'about';
