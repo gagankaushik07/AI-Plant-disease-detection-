@@ -32,9 +32,9 @@ export const DiseaseDetection: React.FC = () => {
       const mimeType = image.split(";")[0].split(":")[1];
       const analysis = await analyzePlantDisease(image, mimeType);
       setResult(analysis);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Failed to analyze image. Please try again.");
+      setError(err.message || "Failed to analyze image. Please ensure the image is clear and try again.");
     } finally {
       setLoading(false);
     }

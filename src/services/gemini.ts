@@ -1,27 +1,44 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { PlantAnalysis, CropRecommendation, FertilizerRecommendation } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const getApiKey = () => {
+  // In Vite, process.env.GEMINI_API_KEY is defined in vite.config.ts
+  const key = process.env.GEMINI_API_KEY;
+  
+  if (!key || key === "MY_GEMINI_API_KEY" || key === "" || key === "undefined") {
+    return "";
+  }
+  return key;
+};
+
+const getAiInstance = () => {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("Gemini API Key is missing. Please click on the 'Secrets' tab in the left sidebar and add a secret named 'GEMINI_API_KEY' with your API key from ai.google.dev.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 export async function analyzePlantDisease(base64Image: string, mimeType: string): Promise<PlantAnalysis> {
-  const response = await ai.models.generateContent({
+  const activeAi = getAiInstance();
+
+  const response = await activeAi.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: [
-      {
-        parts: [
-          {
-            inlineData: {
-              data: base64Image.split(",")[1],
-              mimeType: mimeType,
-            },
+    contents: {
+      parts: [
+        {
+          inlineData: {
+            data: base64Image.includes(",") ? base64Image.split(",")[1] : base64Image,
+            mimeType: mimeType,
           },
-          {
-            text: "Analyze this plant leaf image. Identify if it's healthy or diseased. If diseased, provide the disease name, confidence level (0-1), symptoms, causes, treatment, and prevention steps. Return the result in JSON format.",
-          },
-        ],
-      },
-    ],
+        },
+        {
+          text: "Analyze this plant leaf image. Identify if it's healthy or diseased. If diseased, provide the disease name, confidence level (0-1), symptoms, causes, treatment, and prevention steps. If the image is not a plant leaf, please identify it as 'Unknown' and set isHealthy to true with 0 confidence. Return the result in JSON format.",
+        },
+      ],
+    },
     config: {
+      systemInstruction: "You are an expert plant pathologist. Your task is to analyze images of plant leaves and provide accurate diagnosis in JSON format. Always return a valid JSON object matching the requested schema.",
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -39,11 +56,22 @@ export async function analyzePlantDisease(base64Image: string, mimeType: string)
     },
   });
 
-  return JSON.parse(response.text || "{}");
+  if (!response.text) {
+    throw new Error("No response from AI model");
+  }
+
+  try {
+    return JSON.parse(response.text);
+  } catch (e) {
+    console.error("Failed to parse AI response:", response.text);
+    throw new Error("Invalid response format from AI");
+  }
 }
 
 export async function getCropRecommendation(soilType: string, climate: string, location?: string): Promise<CropRecommendation> {
-  const response = await ai.models.generateContent({
+  const activeAi = getAiInstance();
+
+  const response = await activeAi.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Based on soil type '${soilType}', climate '${climate}'${location ? ` and location '${location}'` : ''}, recommend the best crop to grow. Provide the crop name, reason, best season, soil requirements, and water requirements in JSON format.`,
     config: {
@@ -66,7 +94,9 @@ export async function getCropRecommendation(soilType: string, climate: string, l
 }
 
 export async function getFertilizerRecommendation(crop: string, growthStage: string, soilCondition: string): Promise<FertilizerRecommendation> {
-  const response = await ai.models.generateContent({
+  const activeAi = getAiInstance();
+
+  const response = await activeAi.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `For crop '${crop}' at growth stage '${growthStage}' with soil condition '${soilCondition}', recommend the best fertilizer. Provide the fertilizer name, dosage, application method, and frequency in JSON format.`,
     config: {
@@ -88,14 +118,15 @@ export async function getFertilizerRecommendation(crop: string, growthStage: str
 }
 
 export async function chatWithBhoomi(message: string, history: any[]) {
-  const chat = ai.chats.create({
+  const activeAi = getAiInstance();
+
+  const chat = activeAi.chats.create({
     model: "gemini-3-flash-preview",
     config: {
       systemInstruction: "You are BHOOMI AI, a specialized agricultural assistant. Provide expert advice on plant care, disease management, and sustainable farming. Be helpful, concise, and professional.",
     },
   });
 
-  // Simple history conversion if needed, but for now we'll just send the message
   const response = await chat.sendMessage({ message });
   return response.text;
 }
